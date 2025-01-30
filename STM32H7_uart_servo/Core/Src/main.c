@@ -50,7 +50,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-// 硬件串口重定向函�?
+// 硬件串坣針定坑函�??
 int fputc(int ch, FILE *f)
 {
   HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
@@ -62,7 +62,7 @@ void toggle_led(void)
   HAL_GPIO_TogglePin(GPIOG, GPIO_PIN_7);
 }
 /*
-串口接收中断回调函数
+串坣接收中断回调函数
 */
 uint8_t Rx_data[200] = {0};
 char received_string[256];
@@ -70,14 +70,18 @@ extern DMA_HandleTypeDef hdma_usart1_rx;
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
+  // printf("HAL_UARTEx_RxEventCallback\r\n");
   if (huart == &huart1)
   {
-
     strcpy(received_string, (char *)Rx_data);
-    fprintf(stdout, "%s\r\n", received_string); // 将串�?1接收到的数据返回到串�?1
+    fprintf(stdout, "%s\r\n", received_string); // 将串�??1接收到的数杮返回到串�??1
     memset(Rx_data, 0, sizeof(Rx_data));
     HAL_UARTEx_ReceiveToIdle_DMA(huart, Rx_data, sizeof(Rx_data) - 1);
     __HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+  }
+  else if (huart == &huart2)
+  {
+    ELRS_UARTE_RxCallback(Size);
   }
 }
 
@@ -145,10 +149,12 @@ int main(void)
   MX_ADC1_Init();
   MX_UART4_Init();
   /* USER CODE BEGIN 2 */
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, Rx_data, 200 - 1); // 启用空闲中断接收
-  __HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);        // 关闭DMA传输过半中断
-  UART_Servo_Receive_Enable();
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, Rx_data, 200 - 1); // 坯用空闲中断接收
+  __HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);        // 关闭DMA传输过坊中断
+
   ELRS_Init();
+
+  UART_Servo_Receive_Enable();
   /* USER CODE END 2 */
 
   /* Init scheduler */

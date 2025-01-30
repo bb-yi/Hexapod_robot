@@ -1,4 +1,4 @@
-/* USER CODE BEGIN Header */
+﻿/* USER CODE BEGIN Header */
 /**
  ******************************************************************************
  * File Name          : freertos.c
@@ -28,12 +28,16 @@
 #include "bus_servo_c.h"
 #include "hexapod_servo.h"
 #include "tool.h"
+#include "user_adc.h"
+#include "elrs.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 extern float init_position[6][3];
 extern float leg_position[6][3];
+extern ELRS_Data elrs_data;
+extern uint8_t elrs_is_link;
 
 /* USER CODE END PTD */
 
@@ -65,6 +69,13 @@ const osThreadAttr_t myTask02_attributes = {
     .stack_size = 128 * 4,
     .priority = (osPriority_t)osPriorityLow,
 };
+/* Definitions for myTask03 */
+osThreadId_t myTask03Handle;
+const osThreadAttr_t myTask03_attributes = {
+    .name = "myTask03",
+    .stack_size = 128 * 4,
+    .priority = (osPriority_t)osPriorityLow,
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -73,6 +84,7 @@ const osThreadAttr_t myTask02_attributes = {
 
 void StartDefaultTask(void *argument);
 void StartTask02(void *argument);
+void StartTask03(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -110,6 +122,9 @@ void MX_FREERTOS_Init(void)
   /* creation of myTask02 */
   myTask02Handle = osThreadNew(StartTask02, NULL, &myTask02_attributes);
 
+  /* creation of myTask03 */
+  myTask03Handle = osThreadNew(StartTask03, NULL, &myTask03_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -135,17 +150,37 @@ void StartDefaultTask(void *argument)
   // set_test_position();
   memcpy(leg_position, init_position, sizeof(init_position));
   osDelay(50);
-  // uint8_t id = 18;
-  Set_all_leg_Global_position(leg_position);
+  // Set_all_leg_Global_position(leg_position);
   /* Infinite loop */
   for (;;)
   {
+    // Set_Servo_ID(0, 3);
+    // osDelay(500);
+    // Set_Servo_angle_offset(3, 0);
+    osDelay(2000);
+    // Set_UART_Servo_Angle(12, 0, 0);
+    // Set_UART_Servo_Angle(6, 0, 0);
+    osDelay(2000);
+    // Set_UART_Servo_Angle(12, 180, 0);
+    // Set_UART_Servo_Angle(6, 180, 0);
+    osDelay(2000);
+    // joint_test(3);
+    osDelay(500);
+
+    elrs_Control();
+    // HexapodMove_test();
     // Set_servo_Global_position_IK_test();
     // Set_servo_Local_position_IK_test();
-    MoveAndRotateBody_test();
-    toggle_led();
+    // MoveAndRotateBody_test();
+    float v = Get_Voltage();
+    if (elrs_is_link == 1)
+    {
+      printf("L_X=%.2f,L_Y=%.2f,R_X=%.2f,R_Y=%.2f,A=%d,B=%d,C=%d,D=%d,E=%d,F=%d,\r\n", elrs_data.Left_X, elrs_data.Left_Y, elrs_data.Right_X, elrs_data.Right_Y, elrs_data.A, elrs_data.B, elrs_data.C, elrs_data.D, elrs_data.E, elrs_data.F);
+    }
+    // printf("Voltage: %f\r\n", v);
+    // toggle_led();
     // joint_test(18);
-    osDelay(1000);
+    osDelay(50);
     // printf("test\r\n");
     osDelay(1);
   }
@@ -168,6 +203,42 @@ void StartTask02(void *argument)
     osDelay(1);
   }
   /* USER CODE END StartTask02 */
+}
+
+/* USER CODE BEGIN Header_StartTask03 */
+/**
+ * @brief Function implementing the myTask03 thread.
+ * @param argument: Not used
+ * @retval None
+ */
+extern uint16_t elrs_heartbeat_counter;
+extern UART_HandleTypeDef huart2;
+/* USER CODE END Header_StartTask03 */
+void StartTask03(void *argument)
+{
+  /* USER CODE BEGIN StartTask03 */
+  uint16_t last_elrs_heartbeat_counterl;
+  /* Infinite loop */
+  for (;;)
+  {
+    if (last_elrs_heartbeat_counterl == elrs_heartbeat_counter)
+    {
+      printf("ELRS 未连接 重新初始化\r\n");
+      elrs_is_link = 0;
+      // 停止DMA接收
+      HAL_UART_DMAStop(&huart2);
+      // 恢复错误中断使能
+      ATOMIC_SET_BIT(huart2.Instance->CR3, USART_CR3_EIE);
+      // 清除帧错误标志
+      __HAL_UART_CLEAR_FLAG(&huart2, UART_CLEAR_FEF);
+      memset(&elrs_data, 0, sizeof(elrs_data));
+      ELRS_Init();
+    }
+    last_elrs_heartbeat_counterl = elrs_heartbeat_counter;
+    osDelay(500);
+    osDelay(1);
+  }
+  /* USER CODE END StartTask03 */
 }
 
 /* Private application code --------------------------------------------------*/

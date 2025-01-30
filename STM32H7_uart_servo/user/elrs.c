@@ -4,19 +4,21 @@
 
 extern DMA_HandleTypeDef hdma_usart2_rx;
 
+uint8_t elrs_is_link;
 uint8_t elrs_data_temp[36] = {0};
 void ELRS_Init(void)
 {
     HAL_UARTEx_ReceiveToIdle_DMA(&huart2, elrs_data_temp, MAX_FRAME_SIZE); // 启用空闲中断接收
     __HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_HT);                      // 关闭DMA传输过半中断
 }
-
+uint16_t elrs_heartbeat_counter = 0;
 ELRS_Data elrs_data;
 void ELRS_UARTE_RxCallback(uint16_t Size)
 {
     ELRS_Init();
-
-    // printf("elrs_data_temp\r\n");
+    elrs_is_link = 1;
+    elrs_heartbeat_counter++;
+    // printf("elrs_heartbeat_counter:%d\r\n", elrs_heartbeat_counter);
     // (elrs_data_temp[i] == CRSF_ADDRESS_FLIGHT_CONTROLLER) && (elrs_data_temp[i + 1] == FrameLength) && (elrs_data_temp[i + 2] == CRSF_FRAMETYPE_RC_CHANNELS_PACKED);
     if (elrs_data_temp[0] == CRSF_ADDRESS_FLIGHT_CONTROLLER)
     {
@@ -83,6 +85,6 @@ void ELRS_UARTE_RxCallback(uint16_t Size)
     }
 
     // HAL_UART_Transmit(&huart1, elrs_data_temp, Size, HAL_MAX_DELAY);
-    HAL_GPIO_TogglePin(GPIOF, GPIO_PIN_10);
+    // toggle_led();
     memset(elrs_data_temp, 0, sizeof(elrs_data_temp));
 }

@@ -2,7 +2,8 @@
 #include "tool.h"
 #include "cmsis_os.h"
 #include "bus_servo_c.h"
-
+#include "elrs.h"
+extern ELRS_Data elrs_data;
 float get_leg_height(float x, float offset, float gait, float y_max)
 {
     float x_new = int_mod(x - offset, 360);
@@ -101,13 +102,14 @@ void Set_servo_angle(uint8_t leg, uint8_t joint, float angle)
         angle = 180 - angle;
     }
     // if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_12) == GPIO_PIN_RESET)
-    if (1)
+    // if (1)
+    if (elrs_data.C == 1)
     {
         Set_UART_Servo_Angle(Control_id, angle, 0);
     }
     else
     {
-        hexapod_stop_all_servo();
+        // hexapod_stop_all_servo();
     }
 }
 
@@ -375,6 +377,7 @@ void HexapodMoveStepGait(float x, float y, float z, float LeggedHeight, uint8_t 
             z_move[i] = z * get_leg_move(time, 360 / gait * i, gait, 0);
             hight[i] = -get_leg_height(time, 360 / gait * i, gait, LeggedHeight);
         }
+        // printf("x_move:%f, y_move:%f, z_move:%f, hight:%f\n", x_move[0], y_move[0], z_move[0], hight[0]);
         for (uint8_t i = 0; i < 2; i++)
         {
             MoveAndRotateBody(leg_group_move_position[i], x_move[i], y_move[i], hight[i], 0, 0, z_move[i]);
@@ -472,6 +475,46 @@ void HexapodMove(float x, float y, float z, float LeggedHeight, float speed, uin
         // osDelay(1);
     }
 }
+void elrs_Control(void)
+{
+    float scale = 2;
+    uint32_t i = 0;
+    for (;;)
+    {
+        float x = elrs_data.Right_X / scale;
+        float y = elrs_data.Right_Y / scale;
+        float z = -elrs_data.Left_X / scale / 2;
+        float speed = elrs_data.Left_Y / 2.0f;
+        float heigth = findMaxOfThree(Abs(x), Abs(y), Abs(4 * z)) * 2.0f;
+        printf("x:%f, y:%f, z:%f, speed:%f, heigth:%f,s1=%.2f,s2=%.2f\n", x, y, z, speed, heigth, elrs_data.S1, elrs_data.S2);
+        if (elrs_data.D == 1)
+        {
+            hexapod_stop_all_servo();
+        }
+        else if (elrs_data.B == 1)
+        {
+            HexapodMoveStepGait(x, y, z, heigth, 2, i);
+        }
+        else if (elrs_data.B == 2)
+        {
+            if (elrs_data.E == 1)
+            {
+                MoveAndRotateBody(leg_position, elrs_data.Left_X / 1.0f, (elrs_data.Left_Y - 50.0f) / 0.5f, elrs_data.Right_Y, 0, elrs_data.Right_X / 2.0f, elrs_data.Left_X);
+            }
+            else if (elrs_data.F == 1)
+            {
+                MoveAndRotateBody(leg_position, 0, (elrs_data.Left_Y - 50.0f) / 0.5f, elrs_data.Right_Y, 0, elrs_data.Right_X / 2.0f, elrs_data.Left_X);
+            }
+            else
+            {
+                MoveAndRotateBody(leg_position, elrs_data.Left_X / 1.0f, (elrs_data.Left_Y - 50.0f) / 0.5f, 0, -elrs_data.Right_Y / 2.0f, elrs_data.Right_X / 2.0f, 0);
+            }
+            Set_all_leg_Global_position(leg_position);
+        }
+        i = i + speed;
+        // printf("i:%d\n", i);
+    }
+}
 void joint_test(uint8_t joint_id)
 {
     uint8_t delay_time = 20;
@@ -521,23 +564,23 @@ void Set_servo_Global_position_IK_test(void)
 
 void MoveAndRotateBody_test(void)
 {
-    uint16_t speed = 2;
+    uint16_t speed = 4;
     for (uint16_t i = 0; i < 360 / speed; i++)
     {
         uint16_t time = i * speed;
-        MoveAndRotateBody(leg_position, 0, 0, 0 * sin(degreesToRadians(time)), 15 * sin(degreesToRadians(time)), 15 * cos(degreesToRadians(time)), 30 * sin(degreesToRadians(time)));
+        MoveAndRotateBody(leg_position, 0, 0, 0 * sin(degreesToRadians(time)), 15 * sin(degreesToRadians(time)), 15 * sin(degreesToRadians(time)), 30 * sin(degreesToRadians(time)));
         Set_all_leg_Global_position(leg_position);
     }
 }
 
 void HexapodMove_test(void)
 {
-    float speed = 45;
+    float speed = 30;
     float leg_height = 15;
     uint8_t gait = 2;
     float move_size = 30;
-    float rot_size = 12;
-    uint8_t cycle = 4;
+    float rot_size = 6;
+    uint8_t cycle = 1;
     // osDelay(1000);
     // HexapodMove(0, move_size, 0, leg_height, speed, gait, 3);
     // osDelay(1000);
@@ -548,10 +591,10 @@ void HexapodMove_test(void)
     // HexapodMove(0, -0, -rot_size, leg_height, speed, gait, 3);
     // osDelay(1000);
     // gait = 3;
-    HexapodMove(move_size / 2, move_size, 0, leg_height, speed, gait, cycle);
-    osDelay(1000);
-    HexapodMove(-move_size / 2, -move_size, 0, leg_height, speed, gait, cycle);
-    osDelay(1000);
+    // HexapodMove(move_size / 2, 0, 0, leg_height, speed, gait, cycle);
+    // osDelay(1000);
+    // HexapodMove(-move_size / 2, -0, 0, leg_height, speed, gait, cycle);
+    // osDelay(1000);
     HexapodMove(-0, 0, rot_size, leg_height, speed, gait, cycle);
     osDelay(1000);
     HexapodMove(0, -0, -rot_size, leg_height, speed, gait, cycle);

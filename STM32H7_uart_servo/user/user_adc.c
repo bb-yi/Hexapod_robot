@@ -7,7 +7,7 @@ float Get_Voltage(void)
     HAL_ADC_Start(&hadc1);
     if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
     {
-        Voltage = (float)HAL_ADC_GetValue(&hadc1) / 4096.0f * 3.3f * 12.0f;
+        Voltage = ((float)HAL_ADC_GetValue(&hadc1) / 65535.0f * 3.3f * 11.0f) * 1.4f;
     }
     return Voltage;
 }

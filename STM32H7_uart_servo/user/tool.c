@@ -299,3 +299,18 @@ float ParabolicPath(float x, float x_max, float output_max)
     float temp = (-(x * x) + x_max * x) * output_max / x_max / x_max * 4;
     return temp;
 }
+float findMaxOfThree(float a, float b, float c)
+{
+    if (a >= b && a >= c)
+    {
+        return a;
+    }
+    else if (b >= a && b >= c)
+    {
+        return b;
+    }
+    else
+    {
+        return c;
+    }
+}

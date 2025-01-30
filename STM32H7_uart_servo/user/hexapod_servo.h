@@ -70,6 +70,7 @@ void HexapodMove(float x, float y, float z, float LeggedHeight, float speed, uin
 
 void set_test_position(void);
 
+void elrs_Control(void);
 void joint_test(uint8_t joint_id);
 void Set_servo_Local_position_IK_test(void);
 void Set_servo_Global_position_IK_test(void);

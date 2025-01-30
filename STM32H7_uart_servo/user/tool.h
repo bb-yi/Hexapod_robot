@@ -49,3 +49,4 @@ void dma_print(char *fmt, ...);
 #endif
 float value_cycle(float val, float max, float scale);
 float ParabolicPath(float x, float x_max, float output_max);
+float findMaxOfThree(float a, float b, float c);

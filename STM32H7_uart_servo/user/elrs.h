@@ -100,7 +100,6 @@ typedef struct
     uint16_t heartbeat_counter; // 心跳计数器
 
 } ELRS_Data;
-
 void ELRS_Init(void);
 void ELRS_UARTE_RxCallback(uint16_t Size);
 #endif
