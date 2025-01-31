@@ -67,6 +67,7 @@ void Set_Storage_Leg_Position(void);
 void HexapodMoveStepGait(float x, float y, float z, float LeggedHeight, uint8_t gait, uint32_t i);
 
 void HexapodMove(float x, float y, float z, float LeggedHeight, float speed, uint8_t gait, uint32_t Cycle_time);
+void HexapodMove2(float x, float y, float z, float LeggedHeight, float speed, uint8_t gait, uint32_t run_time);
 
 void set_test_position(void);
 

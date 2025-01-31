@@ -3,6 +3,7 @@
 #include "cmsis_os.h"
 #include "bus_servo_c.h"
 #include "elrs.h"
+#include "user_adc.h"
 extern ELRS_Data elrs_data;
 float get_leg_height(float x, float offset, float gait, float y_max)
 {
@@ -14,7 +15,7 @@ float get_leg_move(float x, float offset, float gait, uint8_t line_back)
 {
     float x_new = degreesToRadians(int_mod(x - offset, 360));
     float output;
-    if (line_back == 0)
+    if (line_back == 0) // 第二段是否线性
     {
         output = x_new < 2 * PI / gait ? cos(x_new * gait / 2) : cos((x_new - (2 * PI / gait) + 2 * PI * (1 - (1 / gait))) * gait / (2 * (gait - 1)));
     }
@@ -309,7 +310,7 @@ void MoveAndRotateBody(float leg_positions[6][3], float dx, float dy, float dz, 
 
 void smoother_target_position_to_init_position(float leg_position[6][3])
 {
-    uint8_t cycle = 5;
+    uint8_t cycle = 50;
     float output[6][3];
     for (uint8_t i = 0; i < cycle; i++)
     {
@@ -372,9 +373,9 @@ void HexapodMoveStepGait(float x, float y, float z, float LeggedHeight, uint8_t 
 
         for (uint8_t i = 0; i < 2; i++)
         {
-            x_move[i] = x * get_leg_move(time, 360 / gait * i, gait, 0);
+            x_move[i] = x * get_leg_move(time, 360 / gait * i, gait, 0); // cos输出为-1-1
             y_move[i] = y * get_leg_move(time, 360 / gait * i, gait, 0);
-            z_move[i] = z * get_leg_move(time, 360 / gait * i, gait, 0);
+            z_move[i] = z * get_leg_move(time, 360 / gait * i, gait, 0); // 转动角度为2*z
             hight[i] = -get_leg_height(time, 360 / gait * i, gait, LeggedHeight);
         }
         // printf("x_move:%f, y_move:%f, z_move:%f, hight:%f\n", x_move[0], y_move[0], z_move[0], hight[0]);
@@ -468,10 +469,30 @@ void HexapodMove(float x, float y, float z, float LeggedHeight, float speed, uin
         }
         else
         {
-            smoother_target_position_to_init_position(leg_position);
+            // smoother_target_position_to_init_position(leg_position);
             break;
         }
         i = i + speed;
+        printf("%d\n", i);
+        // osDelay(1);
+    }
+}
+uint32_t cycle_run_time = 0;
+void HexapodMove2(float x, float y, float z, float LeggedHeight, float speed, uint8_t gait, uint32_t run_time)
+{
+    x = x / 4 * 10;
+    y = y / 4 * 10;
+    z = z / 4;
+    uint32_t start_run_time = cycle_run_time;
+    for (;;)
+    {
+        HexapodMoveStepGait(x, y, z, LeggedHeight, gait, cycle_run_time);
+        cycle_run_time = cycle_run_time + speed;
+        printf("%d\n", cycle_run_time);
+        if (cycle_run_time - start_run_time >= run_time * 360)
+        {
+            break;
+        }
         // osDelay(1);
     }
 }
@@ -482,18 +503,30 @@ void elrs_Control(void)
     for (;;)
     {
         float x = elrs_data.Right_X / scale;
+
         float y = elrs_data.Right_Y / scale;
         float z = -elrs_data.Left_X / scale / 2;
         float speed = elrs_data.Left_Y / 2.0f;
         float heigth = findMaxOfThree(Abs(x), Abs(y), Abs(4 * z)) * 2.0f;
-        printf("x:%f, y:%f, z:%f, speed:%f, heigth:%f,s1=%.2f,s2=%.2f\n", x, y, z, speed, heigth, elrs_data.S1, elrs_data.S2);
+        if (heigth != 0)
+        {
+            heigth = clamp(heigth, 10, 40);
+        }
+        // printf("x:%f, y:%f, z:%f, speed:%f, heigth:%f,s1=%.2f,s2=%.2f\n", x, y, z, speed, heigth, elrs_data.S1, elrs_data.S2);
+        float v = Get_Voltage();
+
+        printf("L_X=%.2f,L_Y=%.2f,R_X=%.2f,R_Y=%.2f,A=%d,B=%d,C=%d,D=%d,E=%d,F=%d,V=%.2f,\r\n", elrs_data.Left_X, elrs_data.Left_Y, elrs_data.Right_X, elrs_data.Right_Y, elrs_data.A, elrs_data.B, elrs_data.C, elrs_data.D, elrs_data.E, elrs_data.F, v);
+
         if (elrs_data.D == 1)
         {
             hexapod_stop_all_servo();
         }
         else if (elrs_data.B == 1)
         {
-            HexapodMoveStepGait(x, y, z, heigth, 2, i);
+            uint8_t gait = 2;
+            gait = elrs_data.F == 1 ? 3 : gait;
+            gait = elrs_data.F == 2 ? 6 : gait;
+            HexapodMoveStepGait(x, y, z, heigth, gait, i);
         }
         else if (elrs_data.B == 2)
         {

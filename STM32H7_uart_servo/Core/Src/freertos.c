@@ -30,6 +30,7 @@
 #include "tool.h"
 #include "user_adc.h"
 #include "elrs.h"
+#include "IMU948.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -38,7 +39,7 @@ extern float init_position[6][3];
 extern float leg_position[6][3];
 extern ELRS_Data elrs_data;
 extern uint8_t elrs_is_link;
-
+extern IMU948_Data imu948_Data;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -157,17 +158,20 @@ void StartDefaultTask(void *argument)
     // Set_Servo_ID(0, 3);
     // osDelay(500);
     // Set_Servo_angle_offset(3, 0);
-    osDelay(2000);
-    // Set_UART_Servo_Angle(12, 0, 0);
-    // Set_UART_Servo_Angle(6, 0, 0);
-    osDelay(2000);
-    // Set_UART_Servo_Angle(12, 180, 0);
-    // Set_UART_Servo_Angle(6, 180, 0);
-    osDelay(2000);
+    // osDelay(2000);
     // joint_test(3);
-    osDelay(500);
-
-    elrs_Control();
+    // osDelay(500);
+    // if (elrs_data.A == 1)
+    // {
+    //   HexapodMove2(0, 0, 60, 30, 10, 2, 1);
+    // }
+    if (elrs_data.D == 1)
+    {
+      hexapod_stop_all_servo();
+    }
+    toggle_led();
+    osDelay(50);
+    // elrs_Control();
     // HexapodMove_test();
     // Set_servo_Global_position_IK_test();
     // Set_servo_Local_position_IK_test();
@@ -175,12 +179,13 @@ void StartDefaultTask(void *argument)
     float v = Get_Voltage();
     if (elrs_is_link == 1)
     {
-      printf("L_X=%.2f,L_Y=%.2f,R_X=%.2f,R_Y=%.2f,A=%d,B=%d,C=%d,D=%d,E=%d,F=%d,\r\n", elrs_data.Left_X, elrs_data.Left_Y, elrs_data.Right_X, elrs_data.Right_Y, elrs_data.A, elrs_data.B, elrs_data.C, elrs_data.D, elrs_data.E, elrs_data.F);
+      // printf("L_X=%.2f,L_Y=%.2f,R_X=%.2f,R_Y=%.2f,A=%d,B=%d,C=%d,D=%d,E=%d,F=%d,V=%.2f,\r\n", elrs_data.Left_X, elrs_data.Left_Y, elrs_data.Right_X, elrs_data.Right_Y, elrs_data.A, elrs_data.B, elrs_data.C, elrs_data.D, elrs_data.E, elrs_data.F, v);
     }
+    printf("euler X=%.2f,euler Y=%.2f,euler Z=%.2f,aX=%.2f,aY=%.2f,aZ=%.2f,X=%.1f,Y=%.1f,Z=%.1f,wendu=%.2f,timestamp=%d\r\n", imu948_Data.euler_X, imu948_Data.euler_Y, imu948_Data.euler_Z, imu948_Data.accel_X, imu948_Data.accel_Y, imu948_Data.accel_Z, imu948_Data.pos_X, imu948_Data.pos_Y, imu948_Data.pos_Z, imu948_Data.temperature, imu948_Data.timestamp);
     // printf("Voltage: %f\r\n", v);
     // toggle_led();
     // joint_test(18);
-    osDelay(50);
+    // osDelay(50);
     // printf("test\r\n");
     osDelay(1);
   }
@@ -213,6 +218,7 @@ void StartTask02(void *argument)
  */
 extern uint16_t elrs_heartbeat_counter;
 extern UART_HandleTypeDef huart2;
+extern UART_HandleTypeDef huart3;
 /* USER CODE END Header_StartTask03 */
 void StartTask03(void *argument)
 {
@@ -223,19 +229,24 @@ void StartTask03(void *argument)
   {
     if (last_elrs_heartbeat_counterl == elrs_heartbeat_counter)
     {
-      printf("ELRS 未连接 重新初始化\r\n");
+      // printf("ELRS 未连接? 重新初始化\r\n");
       elrs_is_link = 0;
       // 停止DMA接收
       HAL_UART_DMAStop(&huart2);
       // 恢复错误中断使能
       ATOMIC_SET_BIT(huart2.Instance->CR3, USART_CR3_EIE);
-      // 清除帧错误标志
+      // 清除帧错误标��?
       __HAL_UART_CLEAR_FLAG(&huart2, UART_CLEAR_FEF);
       memset(&elrs_data, 0, sizeof(elrs_data));
       ELRS_Init();
     }
+    if (HAL_GetTick() - imu948_Data.last_update_time > 1000)
+    {
+      IMU948_UART_Init();
+      printf("IMU948 初始化\r\n");
+    }
     last_elrs_heartbeat_counterl = elrs_heartbeat_counter;
-    osDelay(500);
+    osDelay(1000);
     osDelay(1);
   }
   /* USER CODE END StartTask03 */
