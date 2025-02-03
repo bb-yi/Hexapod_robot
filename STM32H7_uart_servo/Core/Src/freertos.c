@@ -60,7 +60,7 @@ extern IMU948_Data imu948_Data;
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
     .name = "defaultTask",
-    .stack_size = 128 * 4,
+    .stack_size = 512 * 4,
     .priority = (osPriority_t)osPriorityNormal,
 };
 /* Definitions for myTask02 */
@@ -74,7 +74,7 @@ const osThreadAttr_t myTask02_attributes = {
 osThreadId_t myTask03Handle;
 const osThreadAttr_t myTask03_attributes = {
     .name = "myTask03",
-    .stack_size = 128 * 4,
+    .stack_size = 256 * 4,
     .priority = (osPriority_t)osPriorityLow,
 };
 
@@ -171,7 +171,7 @@ void StartDefaultTask(void *argument)
     }
     toggle_led();
     osDelay(50);
-    // elrs_Control();
+    balance_testing();
     // HexapodMove_test();
     // Set_servo_Global_position_IK_test();
     // Set_servo_Local_position_IK_test();
@@ -227,9 +227,14 @@ void StartTask03(void *argument)
   /* Infinite loop */
   for (;;)
   {
+    if (HAL_GetTick() - imu948_Data.last_update_time > 1000)
+    {
+      IMU948_UART_Init();
+      printf("IMU948 初始化\r\n");
+    }
     if (last_elrs_heartbeat_counterl == elrs_heartbeat_counter)
     {
-      // printf("ELRS 未连接? 重新初始化\r\n");
+      // printf("ELRS 未连��?? 重新初始化\r\n");
       elrs_is_link = 0;
       // 停止DMA接收
       HAL_UART_DMAStop(&huart2);
@@ -240,13 +245,9 @@ void StartTask03(void *argument)
       memset(&elrs_data, 0, sizeof(elrs_data));
       ELRS_Init();
     }
-    if (HAL_GetTick() - imu948_Data.last_update_time > 1000)
-    {
-      IMU948_UART_Init();
-      printf("IMU948 初始化\r\n");
-    }
+    // printf("%d,%d\r\n", HAL_GetTick(), imu948_Data.last_update_time);
     last_elrs_heartbeat_counterl = elrs_heartbeat_counter;
-    osDelay(1000);
+    osDelay(500);
     osDelay(1);
   }
   /* USER CODE END StartTask03 */

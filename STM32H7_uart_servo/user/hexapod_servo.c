@@ -4,7 +4,11 @@
 #include "bus_servo_c.h"
 #include "elrs.h"
 #include "user_adc.h"
+#include "IMU948.h"
+#include "pid.h"
 extern ELRS_Data elrs_data;
+extern IMU948_Data imu948_Data;
+
 float get_leg_height(float x, float offset, float gait, float y_max)
 {
     float x_new = int_mod(x - offset, 360);
@@ -253,7 +257,7 @@ float init_position[6][3] = {
     {base_x, -base_y, -base_z}};
 float leg_position[6][3];
 
-void MoveAndRotateBody(float leg_positions[6][3], float dx, float dy, float dz, float roll, float pitch, float yaw)
+void MoveAndRotateBody(float leg_positions[6][3], float base_position[6][3], float dx, float dy, float dz, float roll, float pitch, float yaw)
 {
     // 相对地面坐标系平移旋转相反
     float transformed_matrix[MATRIX_SIZE][MATRIX_SIZE];
@@ -292,7 +296,7 @@ void MoveAndRotateBody(float leg_positions[6][3], float dx, float dy, float dz, 
     {
         for (int j = 0; j < 3; j++)
         {
-            center2leg[i][j] = init_position[i][j] + body_base_vector[i][j]; // 将对应项相加
+            center2leg[i][j] = base_position[i][j] + body_base_vector[i][j]; // 将对应项相加
         }
     }
     for (int i = 0; i < 6; i++)
@@ -367,6 +371,7 @@ void HexapodMoveStepGait(float x, float y, float z, float LeggedHeight, uint8_t 
         gait = 2;
     }
     uint32_t time = int_mod(i, 360);
+
     switch (gait)
     {
     case 2: // 二步态 三角步态 分为两组，组0{0,2,4}，组1{1,3,5}
@@ -381,7 +386,7 @@ void HexapodMoveStepGait(float x, float y, float z, float LeggedHeight, uint8_t 
         // printf("x_move:%f, y_move:%f, z_move:%f, hight:%f\n", x_move[0], y_move[0], z_move[0], hight[0]);
         for (uint8_t i = 0; i < 2; i++)
         {
-            MoveAndRotateBody(leg_group_move_position[i], x_move[i], y_move[i], hight[i], 0, 0, z_move[i]);
+            MoveAndRotateBody(leg_group_move_position[i], init_position, x_move[i], y_move[i], hight[i], 0, 0, z_move[i]);
         }
         gait2_leg_map[0] = 0;
         gait2_leg_map[1] = 1;
@@ -407,9 +412,8 @@ void HexapodMoveStepGait(float x, float y, float z, float LeggedHeight, uint8_t 
         }
         for (uint8_t i = 0; i < 3; i++)
         {
-            MoveAndRotateBody(leg_group_move_position[i], x_move[i], y_move[i], hight[i], 0, 0, z_move[i]);
+            MoveAndRotateBody(leg_group_move_position[i], init_position, x_move[i], y_move[i], hight[i], 0, 0, z_move[i]);
         }
-
         break;
     case 6: // 六步态 六角步态 分为六组，每组1个足 组0{3}，组1{1}，组2{4}，组3{2}，组4{5}，组5{0}
         gait2_leg_map[0] = 3;
@@ -427,7 +431,7 @@ void HexapodMoveStepGait(float x, float y, float z, float LeggedHeight, uint8_t 
         }
         for (uint8_t i = 0; i < 6; i++)
         {
-            MoveAndRotateBody(leg_group_move_position[i], x_move[i], y_move[i], hight[i], 0, 0, z_move[i]);
+            MoveAndRotateBody(leg_group_move_position[i], init_position, x_move[i], y_move[i], hight[i], 0, 0, z_move[i]);
         }
         break;
     }
@@ -496,6 +500,7 @@ void HexapodMove2(float x, float y, float z, float LeggedHeight, float speed, ui
         // osDelay(1);
     }
 }
+
 void elrs_Control(void)
 {
     float scale = 2;
@@ -514,9 +519,11 @@ void elrs_Control(void)
         }
         // printf("x:%f, y:%f, z:%f, speed:%f, heigth:%f,s1=%.2f,s2=%.2f\n", x, y, z, speed, heigth, elrs_data.S1, elrs_data.S2);
         float v = Get_Voltage();
-
-        printf("L_X=%.2f,L_Y=%.2f,R_X=%.2f,R_Y=%.2f,A=%d,B=%d,C=%d,D=%d,E=%d,F=%d,V=%.2f,\r\n", elrs_data.Left_X, elrs_data.Left_Y, elrs_data.Right_X, elrs_data.Right_Y, elrs_data.A, elrs_data.B, elrs_data.C, elrs_data.D, elrs_data.E, elrs_data.F, v);
-
+        // printf("L_X=%.2f,L_Y=%.2f,R_X=%.2f,R_Y=%.2f,A=%d,B=%d,C=%d,D=%d,E=%d,F=%d,V=%.2f,\r\n", elrs_data.Left_X, elrs_data.Left_Y, elrs_data.Right_X, elrs_data.Right_Y, elrs_data.A, elrs_data.B, elrs_data.C, elrs_data.D, elrs_data.E, elrs_data.F, v);
+        printf("L_X=%.2f,L_Y=%.2f,R_X=%.2f,R_Y=%.2f,roll=%.2f,pitch=%.2f,yaw=%.2f,V=%.2f,%d\r\n", elrs_data.Left_X, elrs_data.Left_Y, elrs_data.Right_X, elrs_data.Right_Y, imu948_Data.euler_X_Correct, imu948_Data.euler_Y_Correct, imu948_Data.euler_Z_Correct, v, imu948_Data.timestamp);
+        float body_euler_X = imu948_Data.euler_X_Correct;
+        float body_euler_Y = imu948_Data.euler_Y_Correct;
+        float body_euler_Z = imu948_Data.euler_Z_Correct;
         if (elrs_data.D == 1)
         {
             hexapod_stop_all_servo();
@@ -532,20 +539,63 @@ void elrs_Control(void)
         {
             if (elrs_data.E == 1)
             {
-                MoveAndRotateBody(leg_position, elrs_data.Left_X / 1.0f, (elrs_data.Left_Y - 50.0f) / 0.5f, elrs_data.Right_Y, 0, elrs_data.Right_X / 2.0f, elrs_data.Left_X);
+                MoveAndRotateBody(leg_position, init_position, elrs_data.Left_X / 1.0f, (elrs_data.Left_Y - 50.0f) / 0.5f, elrs_data.Right_Y, 0, elrs_data.Right_X / 2.0f, elrs_data.Left_X);
             }
             else if (elrs_data.F == 1)
             {
-                MoveAndRotateBody(leg_position, 0, (elrs_data.Left_Y - 50.0f) / 0.5f, elrs_data.Right_Y, 0, elrs_data.Right_X / 2.0f, elrs_data.Left_X);
+                MoveAndRotateBody(leg_position, init_position, 0, (elrs_data.Left_Y - 50.0f) / 0.5f, elrs_data.Right_Y, 0, elrs_data.Right_X / 2.0f, elrs_data.Left_X);
             }
             else
             {
-                MoveAndRotateBody(leg_position, elrs_data.Left_X / 1.0f, (elrs_data.Left_Y - 50.0f) / 0.5f, 0, -elrs_data.Right_Y / 2.0f, elrs_data.Right_X / 2.0f, 0);
+                MoveAndRotateBody(leg_position, init_position, elrs_data.Left_X / 1.0f, (elrs_data.Left_Y - 50.0f) / 0.5f, 0, -elrs_data.Right_Y / 2.0f, elrs_data.Right_X / 2.0f, 0);
             }
-            Set_all_leg_Global_position(leg_position);
+            float leg_position_fix[6][3];
+            MoveAndRotateBody(leg_position_fix, leg_position, 0, 0, 0, -body_euler_Y, -body_euler_X, 0);
+            Set_all_leg_Global_position(leg_position_fix);
+        }
+        if (elrs_data.A == 1)
+        {
+            imu948_Data.euler_X_offset = imu948_Data.euler_X;
+            imu948_Data.euler_Y_offset = imu948_Data.euler_Y;
+            imu948_Data.euler_Z_offset = imu948_Data.euler_Z;
         }
         i = i + speed;
+        osDelay(1);
         // printf("i:%d\n", i);
+    }
+}
+pid pid_euler_x;
+pid pid_euler_y;
+void balance_testing(void)
+{
+    float target_euler_X = 0;
+    float target_euler_Y = 0;
+    float now_euler_X, now_euler_Y, error_X, error_Y, x_output, y_output;
+    float x_base = 0, y_base = 0;
+    PID_Init(&pid_euler_x, 0.1, 0, 0);
+    PID_Init(&pid_euler_y, 0.1, 0, 0);
+    for (;;)
+    {
+        if (elrs_data.A == 1)
+        {
+            IMU948_euler_to_zero();
+        }
+        float v = Get_Voltage();
+        // printf("L_X=%.2f,L_Y=%.2f,R_X=%.2f,R_Y=%.2f,roll=%.2f,pitch=%.2f,yaw=%.2f,V=%.2f,%d\r\n", elrs_data.Left_X, elrs_data.Left_Y, elrs_data.Right_X, elrs_data.Right_Y, imu948_Data.euler_X_Correct, imu948_Data.euler_Y_Correct, imu948_Data.euler_Z_Correct, v, imu948_Data.timestamp);
+        now_euler_X = imu948_Data.euler_X_Correct;
+        now_euler_Y = imu948_Data.euler_Y_Correct;
+        error_X = target_euler_X - now_euler_X;
+        error_Y = target_euler_Y - now_euler_Y;
+        x_output = -PID_Control(&pid_euler_x, error_X, 1);
+        y_output = -PID_Control(&pid_euler_y, error_Y, 1);
+        x_base += x_output;
+        y_base += y_output;
+
+        MoveAndRotateBody(leg_position, init_position, 0, 0, 0, x_base, y_base, 0);
+        Set_all_leg_Global_position(leg_position);
+        printf("x_output=%.2f,y_output=%.2f,error_X=%.2f,error_Y=%.2f,now_euler_X=%.2f,now_euler_Y=%.2f\r\n", x_output, y_output, error_X, error_Y, now_euler_X, now_euler_Y);
+        toggle_led();
+        osDelay(1);
     }
 }
 void joint_test(uint8_t joint_id)
@@ -601,7 +651,7 @@ void MoveAndRotateBody_test(void)
     for (uint16_t i = 0; i < 360 / speed; i++)
     {
         uint16_t time = i * speed;
-        MoveAndRotateBody(leg_position, 0, 0, 0 * sin(degreesToRadians(time)), 15 * sin(degreesToRadians(time)), 15 * sin(degreesToRadians(time)), 30 * sin(degreesToRadians(time)));
+        MoveAndRotateBody(leg_position, init_position, 0, 0, 0 * sin(degreesToRadians(time)), 15 * sin(degreesToRadians(time)), 15 * sin(degreesToRadians(time)), 30 * sin(degreesToRadians(time)));
         Set_all_leg_Global_position(leg_position);
     }
 }
@@ -646,7 +696,7 @@ void test(void)
 {
     for (uint16_t i = 0; i < 360; i++)
     {
-        MoveAndRotateBody(leg_position, 0, 0, 30 * sin(degreesToRadians(i)) + 10, 0, 0, 0);
+        MoveAndRotateBody(leg_position, init_position, 0, 0, 30 * sin(degreesToRadians(i)) + 10, 0, 0, 0);
         Set_all_leg_Global_position(leg_position);
         osDelay(5);
     }
@@ -654,7 +704,7 @@ void test(void)
     smoother_target_position_to_init_position(leg_position);
     for (uint16_t i = 0; i < 720; i++)
     {
-        MoveAndRotateBody(leg_position, 0, 0, 0, 10 * sin(degreesToRadians(i)), 10 * cos(degreesToRadians(i)), 30 * sin(degreesToRadians(i)));
+        MoveAndRotateBody(leg_position, init_position, 0, 0, 0, 10 * sin(degreesToRadians(i)), 10 * cos(degreesToRadians(i)), 30 * sin(degreesToRadians(i)));
         Set_all_leg_Global_position(leg_position);
         osDelay(5);
     }
@@ -662,14 +712,14 @@ void test(void)
     smoother_target_position_to_init_position(leg_position);
     for (uint8_t i = 0; i < 180; i++)
     {
-        MoveAndRotateBody(leg_position, 20 * sin(degreesToRadians(2 * i)), 20 * cos(degreesToRadians(2 * i)), 0, 0, 0, 0);
+        MoveAndRotateBody(leg_position, init_position, 20 * sin(degreesToRadians(2 * i)), 20 * cos(degreesToRadians(2 * i)), 0, 0, 0, 0);
         Set_all_leg_Global_position(leg_position);
         osDelay(5);
     }
     osDelay(1000);
     for (uint8_t i = 0; i < 180; i++)
     {
-        MoveAndRotateBody(leg_position, 20 * sin(degreesToRadians(-2 * i)), 20 * cos(degreesToRadians(-2 * i)), 0, 0, 0, 0);
+        MoveAndRotateBody(leg_position, init_position, 20 * sin(degreesToRadians(-2 * i)), 20 * cos(degreesToRadians(-2 * i)), 0, 0, 0, 0);
         Set_all_leg_Global_position(leg_position);
         osDelay(5);
     }

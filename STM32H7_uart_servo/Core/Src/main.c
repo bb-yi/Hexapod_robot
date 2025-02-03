@@ -88,9 +88,28 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
     {
 
         // IMU948_UART_Init();
+        // printf("IMU948_UART_Init\r\n");
         IMU948_RX_Callback(Size);
         // printf("%d\r\n", __HAL_UART_GET_FLAG(&huart3, UART_FLAG_IDLE));
     }
+}
+// ?? HAL_UART_ErrorCallback ??
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+    printf("error%d\r\n", huart->ErrorCode);
+    if (huart->ErrorCode & HAL_UART_ERROR_ORE)
+    {
+        // ??????
+        __HAL_UART_CLEAR_OREFLAG(huart);
+    }
+    if (huart->ErrorCode & HAL_UART_ERROR_FE)
+    {
+        // ?????
+        __HAL_UART_CLEAR_FEFLAG(huart);
+    }
+    // ???? DMA ??
+    IMU948_UART_Init();
+    // HAL_UARTEx_ReceiveToIdle_DMA(huart, IMU948_RX_BUF, sizeof(IMU948_RX_BUF));
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
@@ -100,7 +119,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     {
         // printf("UART_RxCpltCallback\r\n");
         UART_Servo_Rx_Callback();
-        toggle_led();
+        // toggle_led();
     }
 }
 /* USER CODE END PV */
@@ -164,6 +183,7 @@ int main(void)
     ELRS_Init();
     // IMU948_UART_Init();
     IMU948_Init();
+    IMU948_euler_to_zero();
     // IMU_restar();
     UART_Servo_Receive_Enable();
     /* USER CODE END 2 */

@@ -61,7 +61,7 @@ void init_leg_matrix(void);
 void Set_servo_Local_position_IK(uint8_t leg, float position[3]);
 void Set_servo_Global_position_IK(uint8_t leg, float position[3]);
 void Set_all_leg_Global_position(float position[6][3]);
-void MoveAndRotateBody(float leg_positions[6][3], float dx, float dy, float dz, float roll, float pitch, float yaw);
+void MoveAndRotateBody(float leg_positions[6][3], float base_position[6][3], float dx, float dy, float dz, float roll, float pitch, float yaw);
 void smoother_to_init_position(float leg_position[6][3]);
 void Set_Storage_Leg_Position(void);
 void HexapodMoveStepGait(float x, float y, float z, float LeggedHeight, uint8_t gait, uint32_t i);
@@ -72,6 +72,7 @@ void HexapodMove2(float x, float y, float z, float LeggedHeight, float speed, ui
 void set_test_position(void);
 
 void elrs_Control(void);
+void balance_testing(void);
 void joint_test(uint8_t joint_id);
 void Set_servo_Local_position_IK_test(void);
 void Set_servo_Global_position_IK_test(void);

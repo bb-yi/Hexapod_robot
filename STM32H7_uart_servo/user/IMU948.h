@@ -76,6 +76,14 @@ typedef struct
     float nav_accel_Y;
     float nav_accel_Z;
 
+    float euler_X_offset;
+    float euler_Y_offset;
+    float euler_Z_offset;
+
+    float euler_X_Correct;
+    float euler_Y_Correct;
+    float euler_Z_Correct;
+
     // 电压
     float voltage;
     uint32_t last_update_time;
@@ -87,4 +95,5 @@ void IMU_restar(void);
 void IMU948_Init(void);
 void IMU948_UART_Init(void);
 void IMU948_RX_Callback(uint16_t size);
+void IMU948_euler_to_zero(void);
 #endif

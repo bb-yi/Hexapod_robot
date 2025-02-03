@@ -162,7 +162,7 @@ void IMU948_RX_Callback(uint16_t Size)
     U32 tmpU32;
     IMU948_UART_Init();
     // HAL_UART_Transmit(&huart1, IMU948_RX_BUF, Size, HAL_MAX_DELAY);
-    // print_uint8_array(IMU948_RX_BUF, Size);
+    // print_uint8_array(IMU948_RX_BUF, Size);//print导致接收中断
     imu948_Data.last_update_time = HAL_GetTick();
     if (IMU948_RX_BUF[0] == CmdPacket_Begin)
     {
@@ -241,6 +241,9 @@ void IMU948_RX_Callback(uint16_t Size)
                 L += 2;
                 imu948_Data.euler_Z = (S16)(((S16)IMU948_RX_BUF[L + 1] << 8) | IMU948_RX_BUF[L]) * scaleAngle;
                 L += 2;
+                imu948_Data.euler_X_Correct = imu948_Data.euler_X - imu948_Data.euler_X_offset;
+                imu948_Data.euler_Y_Correct = imu948_Data.euler_Y - imu948_Data.euler_Y_offset;
+                imu948_Data.euler_Z_Correct = imu948_Data.euler_Z - imu948_Data.euler_Z_offset;
             }
             if ((ctl & 0x0080) != 0)
             { // xyz 空间位移 单位mm
@@ -278,4 +281,10 @@ void IMU948_RX_Callback(uint16_t Size)
         memset(IMU948_RX_BUF, 0, sizeof(IMU948_RX_BUF));
         // printf("euler X=%.2f,euler Y=%.2f,euler Z=%.2f,aX=%.2f,aY=%.2f,aZ=%.2f,X=%.1f,Y=%.1f,Z=%.1f,wendu=%.2f,timestamp=%d\r\n", imu948_Data.euler_X, imu948_Data.euler_Y, imu948_Data.euler_Z, imu948_Data.accel_X, imu948_Data.accel_Y, imu948_Data.accel_Z, imu948_Data.pos_X, imu948_Data.pos_Y, imu948_Data.pos_Z, imu948_Data.temperature, imu948_Data.timestamp);
     }
+}
+void IMU948_euler_to_zero(void)
+{
+    imu948_Data.euler_X_offset = imu948_Data.euler_X;
+    imu948_Data.euler_Y_offset = imu948_Data.euler_Y;
+    imu948_Data.euler_Z_offset = imu948_Data.euler_Z;
 }
